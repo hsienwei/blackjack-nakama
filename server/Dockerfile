@@ -8,6 +8,7 @@ WORKDIR /backend
 COPY go.mod .
 COPY main.go .
 COPY card.go .
+COPY banker.go .
 COPY vendor/ vendor/
 
 RUN go build --trimpath --mod=vendor --buildmode=plugin -o ./backend.so

@@ -4,21 +4,19 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
-	"math/rand"
 
 	"github.com/heroiclabs/nakama-common/runtime"
 )
 
-type Option uint8
+type Option string
 
 const (
-	BET Option = iota
-	HIT
-	STAND
-	SPLIT
-	DOUBLE
-	RESULT
+	BET    Option = "bet"
+	HIT    Option = "hit"
+	STAND  Option = "stand"
+	SPLIT  Option = "split"
+	DOUBLE Option = "double"
+	RESULT Option = "result"
 )
 
 type BetSet struct {
@@ -26,90 +24,15 @@ type BetSet struct {
 	Cards []Card
 }
 
-type Banker struct {
-	Cards        []Card
-	ShuffleCards []Card
-	DealIndex    uint8
-}
-
 const DEBUG bool = true
-
-func getOptionString(c Option) string {
-	o := "undefined"
-	switch c {
-	case BET:
-		o = "BET"
-	case HIT:
-		o = "HIT"
-	default:
-		o = "UNKNOWN"
-	}
-
-	return o
-}
-
-func (c Option) MarshalJSON() ([]byte, error) {
-	if DEBUG {
-		return []byte(fmt.Sprintf("%q", getOptionString(c))), nil
-	}
-	return []byte(fmt.Sprintf("%d", c)), nil
-}
-
-func (banker *Banker) setDeckOfCount(count int) {
-
-	if count <= 0 {
-		banker.setDeckOfCount(1)
-		return
-	}
-
-	banker.ShuffleCards = make([]Card, count*52)
-
-	for i, v := range defaultDeckOfCards {
-
-		for c := 0; c < count; c++ {
-			banker.ShuffleCards[i*count+c] = v
-		}
-	}
-}
-
-func (banker *Banker) ShuffleCard() {
-
-	if banker.ShuffleCards == nil {
-		banker.setDeckOfCount(1)
-	}
-
-	r := rand.New(rand.NewSource(0))
-	r.Shuffle(
-		len(banker.ShuffleCards),
-		func(i, j int) {
-			(banker.ShuffleCards)[i], (banker.ShuffleCards)[j] = (banker.ShuffleCards)[j], (banker.ShuffleCards)[i]
-		})
-	banker.DealIndex = 0
-}
-
-func (banker *Banker) CheckReshuffleCard() bool {
-	isShuffle := false
-	if len(banker.ShuffleCards)-int(banker.DealIndex) < 15 {
-		banker.ShuffleCard()
-		isShuffle = true
-	}
-
-	return isShuffle
-}
-
-func (banker *Banker) Deal() Card {
-	rtn := banker.ShuffleCards[banker.DealIndex]
-	banker.DealIndex++
-
-	return rtn
-}
 
 type PlayerGame struct {
 	Credit uint32
 	// Status Option
 
-	Bets     []BetSet
-	BetIndex uint8
+	Bets       []BetSet
+	BetIndex   uint8
+	BetOptions []Option
 }
 
 func (g *PlayerGame) getCurrentBet() *BetSet {
@@ -126,13 +49,12 @@ type Response struct {
 	BankerCards []Card
 
 	BetSetIndex uint8
-	Option      []Option
 }
 
 // var players = make(map[string]PlayerGame)
 
-var game PlayerGame
-var banker Banker
+var game *PlayerGame
+var banker *Banker
 
 // func getPlayerGame(logger runtime.Logger, userID string) *PlayerGame {
 
@@ -184,27 +106,18 @@ func Join(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.Nak
 
 	logger.Info("userId %s %s", userId, ok)
 
-	// banker = Banker{
-	// 	Cards:        []Card{},
-	// 	ShuffleCards: nil,
-	// }
-
-	banker := new(Banker)
+	banker = new(Banker)
 
 	banker.ShuffleCard()
 
-	game = PlayerGame{
-		Credit: 10000,
-		// Status:   BET,
-		BetIndex: 0,
-		Bets: []BetSet{
-			{0, []Card{}},
-		},
-	}
+	game = new(PlayerGame)
+	game.Credit = 10000
+	game.Bets = append(game.Bets, BetSet{0, []Card{}})
+
+	game.BetOptions = getActionOption(game)
 
 	return getResponse(Response{
-		Player:      game,
-		Option:      getActionOption(&game),
+		Player:      *game,
 		BankerCards: getRespinseBankerCards(BET),
 	})
 }
@@ -215,12 +128,12 @@ func Action(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.N
 	logger.Info("userId %s %s", userId, ok)
 	logger.Info("payload %s", payload)
 
-	action := PlayerActionRequest{}
+	action := new(PlayerActionRequest)
 
-	if err := json.Unmarshal([]byte(payload), &action); err != nil {
+	if err := json.Unmarshal([]byte(payload), action); err != nil {
 		return "", runtime.NewError("unable to unmarshal payload", 13)
 	}
-	logger.Info("payload %s", action)
+	logger.Info("payload %v", action)
 
 	banker.CheckReshuffleCard()
 
@@ -257,9 +170,10 @@ func Action(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.N
 		// currentBetSet.Cards = []Card{}
 	}
 
+	game.BetOptions = getActionOption(game)
+
 	return getResponse(Response{
-		Player:      game,
-		Option:      getActionOption(&game),
+		Player:      *game,
 		BankerCards: getRespinseBankerCards(action.Action),
 	})
 }
