@@ -9,6 +9,8 @@ type Card uint8
 var CARD_SUITS = [4]string{"♠", "♥", "♦", "♣"}
 var CARD_RANK = [13]string{"A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"}
 
+var CARD_RANK_A = 0
+
 const SUIT_MOD = 16
 const HIDE_CARD Card = 99
 

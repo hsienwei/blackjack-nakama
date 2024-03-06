@@ -5,7 +5,7 @@ import "math/rand"
 type Banker struct {
 	Cards        []Card
 	ShuffleCards []Card
-	DealIndex    uint8
+	DealIndex    int
 }
 
 func (banker *Banker) setDeckOfCount(count int) {
@@ -51,8 +51,22 @@ func (banker *Banker) CheckReshuffleCard() bool {
 }
 
 func (banker *Banker) Deal() Card {
-	rtn := banker.ShuffleCards[banker.DealIndex]
+	card := banker.ShuffleCards[banker.DealIndex]
 	banker.DealIndex++
 
-	return rtn
+	return card
+}
+
+func (banker *Banker) DrawCards() {
+	p := getCardsPoint(banker.Cards)
+	for p[0] <= 17 {
+		banker.Cards = append(banker.Cards, banker.Deal())
+		p = getCardsPoint(banker.Cards)
+	}
+
+}
+
+func (banker *Banker) ClearCards() {
+	banker.Cards = []Card{}
+
 }
