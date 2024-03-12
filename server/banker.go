@@ -1,72 +1,82 @@
 package main
 
-import "math/rand"
-
 type Banker struct {
-	Cards        []Card
-	ShuffleCards []Card
-	DealIndex    int
+	Cards []Card
 }
 
-func (banker *Banker) setDeckOfCount(count int) {
+func (banker *Banker) reset() {
+	banker.Cards = []Card{}
+}
 
-	if count <= 0 {
-		banker.setDeckOfCount(1)
-		return
-	}
+func (banker *Banker) displayHand(finished bool) []Card {
 
-	banker.ShuffleCards = make([]Card, count*52)
+	if !finished {
+		if len(banker.Cards) < 2 {
+			return banker.Cards
+		} else {
+			rtnCards := make([]Card, len(banker.Cards))
 
-	for i, v := range defaultDeckOfCards {
-
-		for c := 0; c < count; c++ {
-			banker.ShuffleCards[i*count+c] = v
+			copy(rtnCards, banker.Cards)
+			rtnCards[1] = HIDE_CARD
+			return rtnCards
 		}
 	}
-}
-
-func (banker *Banker) ShuffleCard() {
-
-	if banker.ShuffleCards == nil {
-		banker.setDeckOfCount(1)
-	}
-
-	r := rand.New(rand.NewSource(0))
-	r.Shuffle(
-		len(banker.ShuffleCards),
-		func(i, j int) {
-			(banker.ShuffleCards)[i], (banker.ShuffleCards)[j] = (banker.ShuffleCards)[j], (banker.ShuffleCards)[i]
-		})
-	banker.DealIndex = 0
-}
-
-func (banker *Banker) CheckReshuffleCard() bool {
-	isShuffle := false
-	if len(banker.ShuffleCards)-int(banker.DealIndex) < 15 {
-		banker.ShuffleCard()
-		isShuffle = true
-	}
-
-	return isShuffle
-}
-
-func (banker *Banker) Deal() Card {
-	card := banker.ShuffleCards[banker.DealIndex]
-	banker.DealIndex++
-
-	return card
-}
-
-func (banker *Banker) DrawCards() {
-	p := getCardsPoint(banker.Cards)
-	for p[0] <= 17 {
-		banker.Cards = append(banker.Cards, banker.Deal())
-		p = getCardsPoint(banker.Cards)
-	}
+	return banker.Cards
 
 }
 
-func (banker *Banker) ClearCards() {
-	banker.Cards = []Card{}
+// type Dealer struct {
+// 	ShuffleCards []Card
+// 	DealIndex    int
+// }
 
-}
+// func (dealer *Dealer) setDeckOfCount(count int) {
+
+// 	if count <= 0 {
+// 		dealer.setDeckOfCount(1)
+// 		return
+// 	}
+
+// 	dealer.ShuffleCards = make([]Card, count*52)
+
+// 	for i, v := range defaultDeckOfCards {
+
+// 		for c := 0; c < count; c++ {
+// 			dealer.ShuffleCards[i*count+c] = v
+// 		}
+// 	}
+// }
+
+// func (dealer *Dealer) ShuffleCard() {
+
+// 	if dealer.ShuffleCards == nil {
+// 		dealer.setDeckOfCount(1)
+// 	}
+
+// 	r := rand.New(rand.NewSource(0))
+// 	r.Shuffle(
+// 		len(dealer.ShuffleCards),
+// 		func(i, j int) {
+// 			(dealer.ShuffleCards)[i], (dealer.ShuffleCards)[j] = (dealer.ShuffleCards)[j], (dealer.ShuffleCards)[i]
+// 		})
+// 	dealer.DealIndex = 0
+// }
+
+// func (dealer *Dealer) CheckReshuffleCard() bool {
+// 	// if len(banker.ShuffleCards)-int(banker.DealIndex) < 15 {
+// 	// 	banker.ShuffleCard()
+// 	// 	return true
+// 	// }
+
+// 	// return false
+
+// 	dealer.ShuffleCard()
+// 	return true
+// }
+
+// func (dealer *Dealer) Deal() Card {
+// 	card := dealer.ShuffleCards[dealer.DealIndex]
+// 	dealer.DealIndex++
+
+// 	return card
+// }

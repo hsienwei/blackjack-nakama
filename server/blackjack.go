@@ -21,3 +21,12 @@ func getCardsPoint(cards []Card) []int {
 		return []int{point}
 	}
 }
+
+func (banker *Banker) DrawCards(dealer *Dealer) {
+	p := getCardsPoint(banker.Cards)
+	for p[0] <= 17 {
+		banker.Cards = append(banker.Cards, dealer.Deal())
+		p = getCardsPoint(banker.Cards)
+	}
+
+}
