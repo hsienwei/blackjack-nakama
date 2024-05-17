@@ -4,19 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"time"
 
 	"github.com/heroiclabs/nakama-common/runtime"
-)
-
-type Option string
-
-const (
-	BET   Option = "bet"
-	HIT   Option = "hit"
-	STAND Option = "stand"
-	//SPLIT  Option = "split"  // Do it later.
-	DOUBLE Option = "double" // Do it later.
-	RESULT Option = "result"
 )
 
 const DEBUG bool = true
@@ -29,8 +19,7 @@ type RequestPlayerAction struct {
 type Response struct {
 	Player      Player
 	BankerCards []Card
-
-	BetSetIndex uint8
+	Result      Result
 }
 
 // var players = make(map[string]PlayerGame)
@@ -40,20 +29,6 @@ var banker *Banker
 
 var dealer *Dealer
 
-// func getPlayerGame(logger runtime.Logger, userID string) *PlayerGame {
-
-// 	value, isExist := players[userID]
-
-// 	logger.Info("%s %s", value, isExist)
-
-// 	if !isExist {
-// 		players[userID] = PlayerGame{Status: 0}
-// 		value = players[userID]
-// 	}
-// 	logger.Info("%s", players)
-// 	return &value
-// }
-
 func getMarshalString(obj any) (string, error) {
 
 	bytes, err := json.Marshal(obj)
@@ -62,26 +37,6 @@ func getMarshalString(obj any) (string, error) {
 	}
 
 	return string(bytes), nil
-}
-
-func getActionOption(game *Player) []Option {
-	rtn := []Option{}
-
-	if game.finished() {
-		rtn = append(rtn, BET)
-	} else {
-		betSet := game.getCurrentHand()
-		if betSet.Bet == 0 {
-			rtn = append(rtn, BET)
-		} else {
-			rtn = append(rtn, HIT, STAND)
-		}
-		if len(betSet.Cards) == 2 {
-			rtn = append(rtn, DOUBLE)
-		}
-	}
-
-	return rtn
 }
 
 func Join(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, payload string) (string, error) {
@@ -94,12 +49,12 @@ func Join(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.Nak
 	dealer = new(Dealer)
 	player = new(Player)
 	player.Credit = 10000
-	player.Hands = append(player.Hands, Hand{0, []Card{}, false})
 	player.Options = getActionOption(player)
 
 	return getMarshalString(Response{
 		Player:      *player,
 		BankerCards: banker.displayHand(false),
+		//Result:      *result,
 	})
 }
 
@@ -116,70 +71,66 @@ func Action(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.N
 	}
 	logger.Info("payload %v", action)
 
-	isActionVaild := false
-	for _, v := range player.Options {
-		if v == action.Action {
-			isActionVaild = true
-		}
+	if player.actionIllegal(action.Action) {
+		return "", runtime.NewError("Action Illegal", 100)
 	}
 
-	if !isActionVaild {
-		return "", runtime.NewError("action not allow", 100)
-	}
-
-	currentBetSet := player.getCurrentHand()
 	switch action.Action {
 	case BET:
 		dealer.CheckReshuffleCard()
 		banker.reset()
 		player.reset()
-		currentBetSet = player.getCurrentHand()
-		if currentBetSet.Bet == 0 {
-			betAmount := uint32(action.Value.(float64))
-			player.Credit -= betAmount
 
-			currentBetSet.Bet = betAmount
-			currentBetSet.Cards = append(currentBetSet.Cards, dealer.Deal(), dealer.Deal())
+		betAmount := uint32(action.Value.(float64))
+		player.Bet(betAmount)
 
-			banker.Cards = append(banker.Cards, dealer.Deal(), dealer.Deal())
-		}
+		curHand := player.getCurrentHand()
+		curHand.Cards = dealer.DealTo(curHand.Cards, 1)
+		banker.Cards = dealer.DealTo(banker.Cards, 1)
+		curHand.Cards = dealer.DealTo(curHand.Cards, 1)
 	case HIT:
-		// game.BetIndex = 0
-		currentBetSet.Cards = append(currentBetSet.Cards, dealer.Deal())
-		p := getCardsPoint(currentBetSet.Cards)
-		if p[0] >= 21 { //&& p[1] >= 21 {
-			player.HandIndex++
-		}
+		player.Hit()
 	case STAND:
-		player.HandIndex++
-	// game.BetIndex = 0
-	// currentBetSet.Bet = 0
-	//currentBetSet.Cards = []Card{}
-
-	// case SPLIT:
-	// 	// game.BetIndex = 0
-	// 	// currentBetSet.Bet = 0
-	// 	// currentBetSet.Cards = []Card{}
-	// 	game.Bets = append(game.Bets, BetSet{Bet: currentBetSet.Bet, Cards: []Card{currentBetSet.Cards[1]}})
-	// 	currentBetSet.Cards = currentBetSet.Cards[:1]
+		player.Stand()
+	case SPLIT:
+		player.Split()
 	case DOUBLE:
-		currentBetSet.isDouble = true
-		player.Credit -= currentBetSet.Bet
-		currentBetSet.Bet *= 2
-		currentBetSet.Cards = append(currentBetSet.Cards, dealer.Deal())
-		player.HandIndex++
+		player.Split()
 	}
 
-	if player.finished() {
+	result := new(Result)
+
+	if player.IsAllHandsFinished() {
 		banker.DrawCards(dealer)
+		result = banker.getResult(player)
 	}
 
 	player.Options = getActionOption(player)
 
 	return getMarshalString(Response{
 		Player:      *player,
-		BankerCards: banker.displayHand(player.finished()),
+		BankerCards: banker.displayHand(player.IsAllHandsFinished()),
+		Result:      *result,
 	})
+}
+
+var x int = 0
+
+func Test(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, payload string) (string, error) {
+	logger.Info("test %s %v", payload, x)
+	x++
+	logger.Info("%v", ctx)
+	time.Sleep(10 * time.Second)
+	logger.Info("sleep end")
+
+	userId, ok := ctx.Value(runtime.RUNTIME_CTX_USER_ID).(string)
+	if ok {
+		logger.Info(userId)
+	} else {
+		logger.Info("no user id")
+	}
+
+	return "", nil
 }
 
 func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, initializer runtime.Initializer) error {
@@ -194,16 +145,10 @@ func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runti
 		logger.Error("Unable to register: %v", err)
 		return err
 	}
+
+	if err := initializer.RegisterRpc("test", Test); err != nil {
+		logger.Error("Unable to register: %v", err)
+		return err
+	}
 	return nil
 }
-
-// if err := json.Unmarshal([]byte(payload), &game); err != nil {
-// 	return "", runtime.NewError("unable to unmarshal payload", 13)
-// }
-
-// response, err := json.Marshal(game)
-// if err != nil {
-// 	return "", runtime.NewError("unable to marshal payload", 13)
-// }
-
-// return string(response), nil

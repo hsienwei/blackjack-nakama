@@ -1,6 +1,10 @@
 package main
 
-import "math/rand"
+import (
+	"fmt"
+	"math/rand"
+	"time"
+)
 
 type Dealer struct {
 	ShuffleCards []Card
@@ -30,7 +34,7 @@ func (dealer *Dealer) ShuffleCard() {
 		dealer.setDeckOfCount(1)
 	}
 
-	r := rand.New(rand.NewSource(0))
+	r := rand.New(rand.NewSource(time.Now().Unix()))
 	r.Shuffle(
 		len(dealer.ShuffleCards),
 		func(i, j int) {
@@ -56,4 +60,17 @@ func (dealer *Dealer) Deal() Card {
 	dealer.DealIndex++
 
 	return card
+}
+
+func (dealer *Dealer) DealTo(target []Card, count int) []Card {
+	c := make([]Card, count)
+	for i := 0; i < count; i += 1 {
+		c[i] = dealer.Deal()
+	}
+
+	return append(target, c...)
+}
+
+func (dealer *Dealer) String() string {
+	return fmt.Sprintf("Less %d Cards.", len(dealer.ShuffleCards)-dealer.DealIndex)
 }

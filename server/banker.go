@@ -1,5 +1,10 @@
 package main
 
+import (
+	"fmt"
+	"strings"
+)
+
 type Banker struct {
 	Cards []Card
 }
@@ -25,58 +30,46 @@ func (banker *Banker) displayHand(finished bool) []Card {
 
 }
 
-// type Dealer struct {
-// 	ShuffleCards []Card
-// 	DealIndex    int
-// }
+func (banker *Banker) DrawCards(dealer *Dealer) {
+	p := GetPoint(banker.Cards)
+	for p.Soft < 17 {
+		banker.Cards = dealer.DealTo(banker.Cards, 1)
+		p = GetPoint(banker.Cards)
+	}
 
-// func (dealer *Dealer) setDeckOfCount(count int) {
+}
 
-// 	if count <= 0 {
-// 		dealer.setDeckOfCount(1)
-// 		return
-// 	}
+type Result struct {
+	BankerPoint Point
+	HandResult  []string
+}
 
-// 	dealer.ShuffleCards = make([]Card, count*52)
+func (banker *Banker) getResult(player *Player) *Result {
+	result := new(Result)
+	result.BankerPoint = GetPoint(banker.Cards)
+	if result.BankerPoint.Hard > 21 {
+		result.HandResult = []string{
+			"brust",
+		}
+	} else {
+		result.HandResult = make([]string, len(player.Hands))
+		for i := 0; i < len(player.Hands); i++ {
+			handPoint := GetPoint(player.Hands[i].Cards)
+			if handPoint.Soft > result.BankerPoint.Soft {
+				result.HandResult[i] = "win"
+			} else {
+				result.HandResult[i] = "lose"
+			}
+		}
+	}
 
-// 	for i, v := range defaultDeckOfCards {
+	return result
+}
 
-// 		for c := 0; c < count; c++ {
-// 			dealer.ShuffleCards[i*count+c] = v
-// 		}
-// 	}
-// }
+func (b *Banker) String() string {
+	builder := strings.Builder{}
+	builder.WriteString(">> BANKER \n")
+	builder.WriteString(fmt.Sprintf("%v %v\n ", b.Cards, GetPoint(b.Cards)))
 
-// func (dealer *Dealer) ShuffleCard() {
-
-// 	if dealer.ShuffleCards == nil {
-// 		dealer.setDeckOfCount(1)
-// 	}
-
-// 	r := rand.New(rand.NewSource(0))
-// 	r.Shuffle(
-// 		len(dealer.ShuffleCards),
-// 		func(i, j int) {
-// 			(dealer.ShuffleCards)[i], (dealer.ShuffleCards)[j] = (dealer.ShuffleCards)[j], (dealer.ShuffleCards)[i]
-// 		})
-// 	dealer.DealIndex = 0
-// }
-
-// func (dealer *Dealer) CheckReshuffleCard() bool {
-// 	// if len(banker.ShuffleCards)-int(banker.DealIndex) < 15 {
-// 	// 	banker.ShuffleCard()
-// 	// 	return true
-// 	// }
-
-// 	// return false
-
-// 	dealer.ShuffleCard()
-// 	return true
-// }
-
-// func (dealer *Dealer) Deal() Card {
-// 	card := dealer.ShuffleCards[dealer.DealIndex]
-// 	dealer.DealIndex++
-
-// 	return card
-// }
+	return builder.String()
+}
