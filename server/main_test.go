@@ -40,6 +40,16 @@ func TestGetPoint(t *testing.T) {
 	_CheckPointEqual(t, []Card{0x40}, 0, 1)
 }
 
+func TestSplit(t *testing.T) {
+	player = new(Player)
+	player.Credit = 10000
+	player.Hands = append(player.Hands, Hand{50, []Card{0x0a, 0x1a}, false})
+	fmt.Println(player)
+	player.Split()
+
+	fmt.Println(player)
+}
+
 func TestGetActionOption(t *testing.T) {
 	initial()
 	opts := getActionOption(player)
@@ -47,7 +57,7 @@ func TestGetActionOption(t *testing.T) {
 		t.Fail()
 	}
 
-	curHand := player.getCurrentHand()
+	curHand := player.CurrentHand()
 	curHand.Bet = 50
 	curHand.Cards = []Card{0x16, 0x14, 0x1c}
 
@@ -87,7 +97,7 @@ func TestSimulationGame(t *testing.T) {
 		fmt.Println(dealer)
 		fmt.Println(player)
 		fmt.Println(banker)
-		curHand := player.getCurrentHand()
+		curHand := player.CurrentHand()
 		opts := getActionOption(player)
 		fmt.Printf("可選選項 %v \n", opts)
 
@@ -122,9 +132,7 @@ func TestSimulationGame(t *testing.T) {
 
 	if !player.IsAllHandsBust() {
 		fmt.Println("莊家抽牌")
-		for GetPoint(banker.Cards).Soft < 17 {
-			banker.Cards = dealer.DealTo(banker.Cards, 1)
-		}
+		banker.DrawCards(dealer)
 	}
 
 	fmt.Println(banker)
@@ -132,10 +140,10 @@ func TestSimulationGame(t *testing.T) {
 
 	var totalPay uint32 = 0
 	for i := 0; i < len(player.Hands); i++ {
-		totalPay += CompareAndPay(player.Hands[i].Cards, player.Hands[i].Bet, banker.Cards)
+		totalPay += CompareAndPay(player.Hands[i].Cards, player.Hands[i].Bet, banker.Cards).WinAmount
 	}
 
-	fmt.Printf("拿到 %v", totalPay)
+	fmt.Printf("拿到 %v\n", totalPay)
 	player.Credit += totalPay
 	fmt.Println(player)
 

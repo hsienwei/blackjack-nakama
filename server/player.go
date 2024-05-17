@@ -19,7 +19,7 @@ type Player struct {
 	Options   []Option
 }
 
-func (g *Player) getCurrentHand() *Hand {
+func (g *Player) CurrentHand() *Hand {
 	if g.IsAllHandsFinished() {
 		return nil
 	}
@@ -41,7 +41,7 @@ func (g *Player) actionIllegal(action Option) bool {
 }
 
 func (g *Player) Bet(amount uint32) {
-	curHand := g.getCurrentHand()
+	curHand := g.CurrentHand()
 	g.Credit -= amount
 	curHand.Bet = amount
 }
@@ -51,35 +51,35 @@ func (g *Player) Stand() {
 }
 
 func (g *Player) Hit() {
-	curHand := g.getCurrentHand()
+	curHand := g.CurrentHand()
 	curHand.Cards = dealer.DealTo(curHand.Cards, 1)
 	if GetPoint(curHand.Cards).Hard > 21 {
 		g.HandIndex++
 	}
 }
 
-func (g *Player) Double() {
-	curHand := g.getCurrentHand()
-	g.Credit -= curHand.Bet
+func (p *Player) Double() {
+	curHand := p.CurrentHand()
+	p.Credit -= curHand.Bet
 	curHand.Bet *= 2
 	curHand.Doubled = true
 	curHand.Cards = dealer.DealTo(curHand.Cards, 1)
-	g.HandIndex++
+	p.HandIndex++
 }
 
-func (g *Player) Split() {
-	curHand := g.getCurrentHand()
-	g.Credit -= curHand.Bet
+func (p *Player) Split() {
+	p.Credit -= p.CurrentHand().Bet
 
 	hand := Hand{}
-	hand.Bet = curHand.Bet
-	hand.Cards = []Card{curHand.Cards[1]}
-	g.Hands = append(g.Hands, hand)
-	curHand.Cards = []Card{curHand.Cards[0]}
+	hand.Bet = p.CurrentHand().Bet
+	hand.Cards = []Card{p.CurrentHand().Cards[1]}
+	p.Hands = append(p.Hands, hand)
+
+	p.CurrentHand().Cards = []Card{p.CurrentHand().Cards[0]}
 }
 
-func (g *Player) IsAllHandsFinished() bool {
-	return g.HandIndex >= len(g.Hands)
+func (p *Player) IsAllHandsFinished() bool {
+	return p.HandIndex >= len(p.Hands)
 }
 
 func (g *Player) IsAllHandsBust() bool {
@@ -94,6 +94,7 @@ func (g *Player) IsAllHandsBust() bool {
 
 func (g *Player) reset() {
 	g.Hands = []Hand{}
+	g.Hands = append(player.Hands, Hand{})
 	g.HandIndex = 0
 	g.Options = nil
 }

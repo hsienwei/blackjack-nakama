@@ -15,8 +15,12 @@ const (
 	RESULT Option = "result"
 )
 
-func IsAllowSplit(card1, card2 Card) bool {
-	return card1.Point() == card2.Point()
+func IsAllowSplit(cards []Card) bool {
+	if len(cards) != 2 {
+		return false
+	}
+
+	return cards[0].Point() == cards[1].Point()
 }
 
 type Point struct {
@@ -49,49 +53,64 @@ func GetPoint(cards []Card) Point {
 	}
 }
 
-func CompareAndPay(playerCards []Card, bet uint32, bankerCards []Card) uint32 {
+type HandResult struct {
+	WinAmount uint32
+	Comment   string
+}
+
+func CompareAndPay(playerCards []Card, bet uint32, bankerCards []Card) HandResult {
 	fmt.Printf("PlayerCard:%v   bankerCards:%v  bet: %d \n", playerCards, bankerCards, bet)
 	playerPoint := GetPoint(playerCards)
 	bankerPoint := GetPoint(bankerCards)
-	var rtn uint32 = 0
+	var rtn HandResult
 	if playerPoint.Soft > 21 {
 		fmt.Println("Player hands bust , Banker Win")
-		//rtn = -int32(bet)
+		rtn = HandResult{0, "Player burst, Banker Win"}
 	} else if bankerPoint.Soft > 21 {
 		fmt.Println("Banker hands bust , Player Win")
-		rtn = bet * 2
+		rtn = HandResult{bet * 2, "Banker burst, Player Win"}
 	} else if playerPoint.Soft > bankerPoint.Soft {
 		fmt.Println("Player hands > Banker hands , Player Win")
-		rtn = bet * 2
+		rtn = HandResult{bet * 2, "Player bigger, Player Win"}
 	} else if playerPoint.Soft < bankerPoint.Soft {
 		fmt.Println("Banker hands > Player hands , Banker Win")
-		//rtn = -int32(bet)
+		rtn = HandResult{0, "Banker bigger, Banker Win"}
 	} else {
 		fmt.Println("Banker hands = Player hands , no win")
+		rtn = HandResult{bet, "Banker = Player"}
 	}
 
 	return rtn
 }
 
-func getActionOption(game *Player) []Option {
+func getActionOption(p *Player) []Option {
 	rtn := []Option{}
 
-	if game.IsAllHandsFinished() && game.Credit >= 50 {
+	if p.IsAllHandsFinished() && p.Credit >= 50 {
 		rtn = append(rtn, BET)
 	} else {
-		curHand := game.getCurrentHand()
+		curHand := p.CurrentHand()
+		point := GetPoint(curHand.Cards)
+
 		if curHand.Bet == 0 {
 			rtn = append(rtn, BET)
 		} else {
-			rtn = append(rtn, HIT, STAND)
+			if point.Soft < 21 {
+				rtn = append(rtn, HIT, STAND)
+			} else {
+				rtn = append(rtn, STAND)
+			}
+
+			if len(curHand.Cards) == 2 && p.Credit >= curHand.Bet {
+				if !(point.Soft < 21) {
+					rtn = append(rtn, DOUBLE)
+				}
+				if IsAllowSplit(curHand.Cards) {
+					rtn = append(rtn, SPLIT)
+				}
+			}
 		}
-		point := GetPoint(curHand.Cards)
-		if len(curHand.Cards) == 2 && game.Credit >= curHand.Bet && !curHand.Doubled && point.Soft < 21 {
-			rtn = append(rtn, DOUBLE)
-		}
-		if len(curHand.Cards) == 2 && game.Credit >= curHand.Bet && IsAllowSplit(curHand.Cards[0], curHand.Cards[1]) {
-			rtn = append(rtn, SPLIT)
-		}
+
 	}
 
 	return rtn

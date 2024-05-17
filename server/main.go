@@ -49,6 +49,7 @@ func Join(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.Nak
 	dealer = new(Dealer)
 	player = new(Player)
 	player.Credit = 10000
+
 	player.Options = getActionOption(player)
 
 	return getMarshalString(Response{
@@ -84,7 +85,7 @@ func Action(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.N
 		betAmount := uint32(action.Value.(float64))
 		player.Bet(betAmount)
 
-		curHand := player.getCurrentHand()
+		curHand := player.CurrentHand()
 		curHand.Cards = dealer.DealTo(curHand.Cards, 1)
 		banker.Cards = dealer.DealTo(banker.Cards, 1)
 		curHand.Cards = dealer.DealTo(curHand.Cards, 1)
@@ -95,14 +96,21 @@ func Action(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.N
 	case SPLIT:
 		player.Split()
 	case DOUBLE:
-		player.Split()
+		player.Double()
 	}
 
 	result := new(Result)
 
 	if player.IsAllHandsFinished() {
-		banker.DrawCards(dealer)
+		if !player.IsAllHandsBust() {
+			banker.DrawCards(dealer)
+		}
+
 		result = banker.getResult(player)
+
+		for i := 0; i < len(result.HandResult); i++ {
+			player.Credit += result.HandResult[i].WinAmount
+		}
 	}
 
 	player.Options = getActionOption(player)

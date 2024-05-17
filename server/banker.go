@@ -41,26 +41,15 @@ func (banker *Banker) DrawCards(dealer *Dealer) {
 
 type Result struct {
 	BankerPoint Point
-	HandResult  []string
+	HandResult  []HandResult
 }
 
 func (banker *Banker) getResult(player *Player) *Result {
 	result := new(Result)
 	result.BankerPoint = GetPoint(banker.Cards)
-	if result.BankerPoint.Hard > 21 {
-		result.HandResult = []string{
-			"brust",
-		}
-	} else {
-		result.HandResult = make([]string, len(player.Hands))
-		for i := 0; i < len(player.Hands); i++ {
-			handPoint := GetPoint(player.Hands[i].Cards)
-			if handPoint.Soft > result.BankerPoint.Soft {
-				result.HandResult[i] = "win"
-			} else {
-				result.HandResult[i] = "lose"
-			}
-		}
+	result.HandResult = make([]HandResult, len(player.Hands))
+	for i := 0; i < len(player.Hands); i++ {
+		result.HandResult[i] = CompareAndPay(player.Hands[i].Cards, player.Hands[i].Bet, banker.Cards)
 	}
 
 	return result
