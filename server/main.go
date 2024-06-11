@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"time"
 
 	"github.com/heroiclabs/nakama-common/runtime"
 )
@@ -122,25 +121,6 @@ func Action(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.N
 	})
 }
 
-var x int = 0
-
-func Test(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, payload string) (string, error) {
-	logger.Info("test %s %v", payload, x)
-	x++
-	logger.Info("%v", ctx)
-	time.Sleep(10 * time.Second)
-	logger.Info("sleep end")
-
-	userId, ok := ctx.Value(runtime.RUNTIME_CTX_USER_ID).(string)
-	if ok {
-		logger.Info(userId)
-	} else {
-		logger.Info("no user id")
-	}
-
-	return "", nil
-}
-
 func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, initializer runtime.Initializer) error {
 	logger.Info("Hello World!")
 
@@ -154,9 +134,5 @@ func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runti
 		return err
 	}
 
-	if err := initializer.RegisterRpc("test", Test); err != nil {
-		logger.Error("Unable to register: %v", err)
-		return err
-	}
 	return nil
 }
