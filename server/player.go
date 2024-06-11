@@ -6,9 +6,8 @@ import (
 )
 
 type Hand struct {
-	Bet     uint32
-	Cards   []Card
-	Doubled bool
+	Bet   uint32
+	Cards []Card
 }
 
 type Player struct {
@@ -19,14 +18,14 @@ type Player struct {
 	Options   []Option
 }
 
-func (g *Player) CurrentHand() *Hand {
-	if g.IsAllHandsFinished() {
+func (p *Player) CurrentHand() *Hand {
+	if p.IsAllHandsFinished() {
 		return nil
 	}
-	return &(g.Hands[g.HandIndex])
+	return &(p.Hands[p.HandIndex])
 }
 
-func (g *Player) actionIllegal(action Option) bool {
+func (p *Player) actionIllegal(action Option) bool {
 
 	actionIllegal := true
 	for _, v := range player.Options {
@@ -40,21 +39,21 @@ func (g *Player) actionIllegal(action Option) bool {
 
 }
 
-func (g *Player) Bet(amount uint32) {
-	curHand := g.CurrentHand()
-	g.Credit -= amount
+func (p *Player) Bet(amount uint32) {
+	curHand := p.CurrentHand()
+	p.Credit -= amount
 	curHand.Bet = amount
 }
 
-func (g *Player) Stand() {
-	g.HandIndex++
+func (p *Player) Stand() {
+	p.HandIndex++
 }
 
-func (g *Player) Hit() {
-	curHand := g.CurrentHand()
+func (p *Player) Hit() {
+	curHand := p.CurrentHand()
 	curHand.Cards = dealer.DealTo(curHand.Cards, 1)
 	if GetPoint(curHand.Cards).Hard > 21 {
-		g.HandIndex++
+		p.HandIndex++
 	}
 }
 
@@ -62,7 +61,6 @@ func (p *Player) Double() {
 	curHand := p.CurrentHand()
 	p.Credit -= curHand.Bet
 	curHand.Bet *= 2
-	curHand.Doubled = true
 	curHand.Cards = dealer.DealTo(curHand.Cards, 1)
 	p.HandIndex++
 }
@@ -82,9 +80,9 @@ func (p *Player) IsAllHandsFinished() bool {
 	return p.HandIndex >= len(p.Hands)
 }
 
-func (g *Player) IsAllHandsBust() bool {
-	for i := 0; i < len(g.Hands); i++ {
-		if GetPoint(g.Hands[i].Cards).Hard <= 21 {
+func (p *Player) IsAllHandsBust() bool {
+	for i := 0; i < len(p.Hands); i++ {
+		if GetPoint(p.Hands[i].Cards).Hard <= 21 {
 			return false
 		}
 	}
@@ -92,21 +90,21 @@ func (g *Player) IsAllHandsBust() bool {
 	return true
 }
 
-func (g *Player) reset() {
-	g.Hands = []Hand{}
-	g.Hands = append(player.Hands, Hand{})
-	g.HandIndex = 0
-	g.Options = nil
+func (p *Player) reset() {
+	p.Hands = []Hand{}
+	p.Hands = append(player.Hands, Hand{})
+	p.HandIndex = 0
+	p.Options = nil
 }
 
-func (g *Player) String() string {
+func (p *Player) String() string {
 	builder := strings.Builder{}
 	builder.WriteString(">> PLAYER n")
-	builder.WriteString(fmt.Sprintf("Credit: %d \n ", g.Credit))
+	builder.WriteString(fmt.Sprintf("Credit: %d \n ", p.Credit))
 
-	for i := 0; i < len(g.Hands); i++ {
-		builder.WriteString(fmt.Sprintf("# %d \t Bet %d \t ", i, g.Hands[i].Bet))
-		builder.WriteString(fmt.Sprintf("%v %v\n ", g.Hands[i].Cards, GetPoint(g.Hands[i].Cards)))
+	for i := 0; i < len(p.Hands); i++ {
+		builder.WriteString(fmt.Sprintf("# %d \t Bet %d \t ", i, p.Hands[i].Bet))
+		builder.WriteString(fmt.Sprintf("%v %v\n ", p.Hands[i].Cards, GetPoint(p.Hands[i].Cards)))
 	}
 
 	return builder.String()

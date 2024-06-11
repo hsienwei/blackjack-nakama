@@ -43,7 +43,7 @@ func TestGetPoint(t *testing.T) {
 func TestSplit(t *testing.T) {
 	player = new(Player)
 	player.Credit = 10000
-	player.Hands = append(player.Hands, Hand{50, []Card{0x0a, 0x1a}, false})
+	player.Hands = append(player.Hands, Hand{50, []Card{0x0a, 0x1a}})
 	fmt.Println(player)
 	player.Split()
 
@@ -107,6 +107,7 @@ func TestSimulationGame(t *testing.T) {
 			curHand.Cards = dealer.DealTo(curHand.Cards, 1)
 			banker.Cards = dealer.DealTo(banker.Cards, 1)
 			curHand.Cards = dealer.DealTo(curHand.Cards, 1)
+			banker.Cards = dealer.DealTo(banker.Cards, 1)
 		} else if slices.Contains(opts, DOUBLE) {
 			fmt.Println("選擇 DOUBLE")
 			player.Double()
