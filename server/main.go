@@ -23,10 +23,10 @@ type Response struct {
 
 // var players = make(map[string]PlayerGame)
 
-var player *Player
-var banker *Banker
+// var player *Player
+// var banker *Banker
 
-var dealer *Dealer
+// var dealer *Dealer
 
 func getMarshalString(obj any) (string, error) {
 
@@ -44,17 +44,14 @@ func Join(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.Nak
 
 	logger.Info("userId %s %s", userId, ok)
 
-	banker = new(Banker)
-	dealer = new(Dealer)
-	player = new(Player)
-	player.Credit = 10000
+	bj := new(BlackJackGame)
 
-	player.Options = getActionOption(player)
+	bj.player.Credit = 10000
+	bj.player.Options = bj.GetActionOption()
 
 	return getMarshalString(Response{
-		Player:      *player,
-		BankerCards: banker.displayHand(false),
-		//Result:      *result,
+		Player:      bj.player,
+		BankerCards: bj.banker.displayHand(false),
 	})
 }
 
@@ -71,52 +68,15 @@ func Action(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.N
 	}
 	logger.Info("payload %v", action)
 
-	if player.actionIllegal(action.Action) {
-		return "", runtime.NewError("Action Illegal", 100)
-	}
-
-	switch action.Action {
-	case BET:
-		dealer.CheckReshuffleCard()
-		banker.reset()
-		player.reset()
-
-		betAmount := uint32(action.Value.(float64))
-		player.Bet(betAmount)
-
-		curHand := player.CurrentHand()
-		curHand.Cards = dealer.DealTo(curHand.Cards, 1)
-		banker.Cards = dealer.DealTo(banker.Cards, 1)
-		curHand.Cards = dealer.DealTo(curHand.Cards, 1)
-	case HIT:
-		player.Hit()
-	case STAND:
-		player.Stand()
-	case SPLIT:
-		player.Split()
-	case DOUBLE:
-		player.Double()
-	}
+	bj := new(BlackJackGame)
+	bj.ExecAction(action.Action, action.Value)
 
 	result := new(Result)
-
-	if player.IsAllHandsFinished() {
-		if !player.IsAllHandsBust() {
-			banker.DrawCards(dealer)
-		}
-
-		result = banker.getResult(player)
-
-		for i := 0; i < len(result.HandResult); i++ {
-			player.Credit += result.HandResult[i].WinAmount
-		}
-	}
-
-	player.Options = getActionOption(player)
+	result = bj.banker.getResult(&bj.player)
 
 	return getMarshalString(Response{
-		Player:      *player,
-		BankerCards: banker.displayHand(player.IsAllHandsFinished()),
+		Player:      bj.player,
+		BankerCards: bj.banker.displayHand(bj.player.IsAllHandsFinished()),
 		Result:      *result,
 	})
 }

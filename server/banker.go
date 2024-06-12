@@ -6,35 +6,31 @@ import (
 )
 
 type Banker struct {
-	Cards []Card
-}
-
-func (banker *Banker) reset() {
-	banker.Cards = []Card{}
+	CardSet
 }
 
 func (banker *Banker) displayHand(finished bool) []Card {
 
 	if !finished {
-		if len(banker.Cards) < 2 {
-			return banker.Cards
+		if len(banker.CardSet) < 2 {
+			return banker.CardSet
 		} else {
-			rtnCards := make([]Card, len(banker.Cards))
+			rtnCards := make([]Card, len(banker.CardSet))
 
-			copy(rtnCards, banker.Cards)
+			copy(rtnCards, banker.CardSet)
 			rtnCards[1] = HIDE_CARD
 			return rtnCards
 		}
 	}
-	return banker.Cards
+	return banker.CardSet
 
 }
 
 func (banker *Banker) DrawCards(dealer *Dealer) {
-	p := GetPoint(banker.Cards)
+	p := banker.CardSet.GetPoint()
 	for p.Soft < 17 {
-		banker.Cards = dealer.DealTo(banker.Cards, 1)
-		p = GetPoint(banker.Cards)
+		banker.CardSet = dealer.DealTo(banker.CardSet, 1)
+		p = banker.CardSet.GetPoint()
 	}
 
 }
@@ -46,10 +42,10 @@ type Result struct {
 
 func (banker *Banker) getResult(player *Player) *Result {
 	result := new(Result)
-	result.BankerPoint = GetPoint(banker.Cards)
+	result.BankerPoint = banker.CardSet.GetPoint()
 	result.HandResult = make([]HandResult, len(player.Hands))
 	for i := 0; i < len(player.Hands); i++ {
-		result.HandResult[i] = CompareAndPay(player.Hands[i].Cards, player.Hands[i].Bet, banker.Cards)
+		result.HandResult[i] = CompareAndPay(player.Hands[i].CardSet, player.Hands[i].Bet, banker.CardSet)
 	}
 
 	return result
@@ -58,7 +54,7 @@ func (banker *Banker) getResult(player *Player) *Result {
 func (b *Banker) String() string {
 	builder := strings.Builder{}
 	builder.WriteString(">> BANKER \n")
-	builder.WriteString(fmt.Sprintf("%v %v\n ", b.Cards, GetPoint(b.Cards)))
+	builder.WriteString(fmt.Sprintf("%v %v\n ", b.CardSet, b.CardSet.GetPoint()))
 
 	return builder.String()
 }

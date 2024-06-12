@@ -6,21 +6,17 @@ import (
 	"testing"
 )
 
+var bj *BlackJackGame
+
 func initial() {
-	player = new(Player)
-	player.Credit = 10000
-	player.Hands = append(player.Hands, Hand{})
-	player.Options = getActionOption(player)
-
-	banker = new(Banker)
-	banker.reset()
-
-	dealer = new(Dealer)
-	dealer.ShuffleCard()
+	bj = new(BlackJackGame)
+	bj.player.Credit = 10000
+	bj.player.Options = bj.GetActionOption()
+	bj.dealer.ShuffleCard()
 }
 
-func _CheckPointEqual(t *testing.T, cards []Card, targetPoint int, targetCount int) {
-	points := GetPoint(cards)
+func _CheckPointEqual(t *testing.T, cards CardSet, targetPoint int, targetCount int) {
+	points := cards.GetPoint()
 	fmt.Printf("%v %v\n", cards, points)
 	if points.Soft != targetPoint {
 		t.Fail()
@@ -41,48 +37,46 @@ func TestGetPoint(t *testing.T) {
 }
 
 func TestSplit(t *testing.T) {
-	player = new(Player)
-	player.Credit = 10000
-	player.Hands = append(player.Hands, Hand{50, []Card{0x0a, 0x1a}})
-	fmt.Println(player)
-	player.Split()
+	initial()
+	bj.player.Credit = 10000
+	bj.player.Hands = append(bj.player.Hands, Hand{50, []Card{0x0a, 0x1a}})
+	fmt.Println(bj.player)
+	bj.player.Split()
 
-	fmt.Println(player)
+	fmt.Println(bj.player)
 }
 
 func TestGetActionOption(t *testing.T) {
 	initial()
-	opts := getActionOption(player)
+	opts := bj.GetActionOption()
 	if !slices.Contains(opts, BET) {
 		t.Fail()
 	}
 
-	curHand := player.CurrentHand()
-	curHand.Bet = 50
-	curHand.Cards = []Card{0x16, 0x14, 0x1c}
-
-	opts = getActionOption(player)
+	bj.player.Hands = append(bj.player.Hands, Hand{50, []Card{0x16, 0x14, 0x1c}})
+	opts = bj.GetActionOption()
 	fmt.Printf("%v", opts)
 	if slices.Contains(opts, DOUBLE) {
 		t.Fail()
 	}
 
-	curHand.Cards = []Card{0x10, 0x1a}
-	opts = getActionOption(player)
+	curHand := bj.player.CurrentHand()
+	curHand.CardSet = []Card{0x10, 0x1a}
+	opts = bj.GetActionOption()
 	fmt.Printf("%v", opts)
 	if slices.Contains(opts, DOUBLE) {
 		t.Fail()
 	}
 
-	curHand.Cards = []Card{0x10, 0x20}
-	opts = getActionOption(player)
+	curHand.CardSet = []Card{0x10, 0x20}
+	opts = bj.GetActionOption()
 	fmt.Printf("%v", opts)
 	if !slices.Contains(opts, SPLIT) {
 		t.Fail()
 	}
 
-	curHand.Cards = []Card{0x1a, 0x2b}
-	opts = getActionOption(player)
+	curHand.CardSet = []Card{0x1a, 0x2b}
+	opts = bj.GetActionOption()
 	fmt.Printf("%v", opts)
 	if !slices.Contains(opts, SPLIT) {
 		t.Fail()
@@ -92,60 +86,64 @@ func TestGetActionOption(t *testing.T) {
 func TestSimulationGame(t *testing.T) {
 	initial()
 
+	bj.player.Options = bj.GetActionOption()
+
 	for {
 		// Bet at start.
-		fmt.Println(dealer)
-		fmt.Println(player)
-		fmt.Println(banker)
-		curHand := player.CurrentHand()
-		opts := getActionOption(player)
+		fmt.Println(bj.dealer)
+		fmt.Println(bj.player)
+		fmt.Println(bj.banker)
+		opts := bj.GetActionOption()
 		fmt.Printf("可選選項 %v \n", opts)
 
 		if slices.Contains(opts, BET) {
 			fmt.Println("選擇 BET")
-			player.Bet(50)
-			curHand.Cards = dealer.DealTo(curHand.Cards, 1)
-			banker.Cards = dealer.DealTo(banker.Cards, 1)
-			curHand.Cards = dealer.DealTo(curHand.Cards, 1)
-			banker.Cards = dealer.DealTo(banker.Cards, 1)
+			bj.ExecAction(BET, 50)
 		} else if slices.Contains(opts, DOUBLE) {
 			fmt.Println("選擇 DOUBLE")
-			player.Double()
+			bj.ExecAction(DOUBLE, 0)
 		} else if slices.Contains(opts, SPLIT) {
 			fmt.Println("選擇 SPLIT")
-			player.Split()
-		} else if slices.Contains(opts, STAND) && GetPoint(curHand.Cards).Soft > 17 {
+			bj.ExecAction(SPLIT, 0)
+		} else if slices.Contains(opts, STAND) &&
+			bj.player.CurrentHand().CardSet.GetPoint().Soft > 17 {
 			fmt.Println("選擇 STAND")
-			player.Stand()
+			bj.ExecAction(STAND, 0)
 		} else if slices.Contains(opts, HIT) {
 			fmt.Println("選擇 HIT")
-			player.Hit()
+			bj.ExecAction(HIT, 0)
 		}
 
-		if player.IsAllHandsFinished() {
+		if bj.player.IsAllHandsFinished() {
 			break
 		}
 
+		bj.player.Options = bj.GetActionOption()
 	}
 	fmt.Println("玩家操作結束")
-	fmt.Println(player)
-	fmt.Println(banker)
+	fmt.Println(bj.player)
+	fmt.Println(bj.banker)
 
-	if !player.IsAllHandsBust() {
-		fmt.Println("莊家抽牌")
-		banker.DrawCards(dealer)
+	if bj.player.IsAllHandsFinished() {
+		result := bj.ExecBankerAction()
+		fmt.Printf("%#v", result)
 	}
 
-	fmt.Println(banker)
-	fmt.Println("比較與賠付")
+	// if !bj.player.IsAllHandsBust() {
+	// 	fmt.Println("莊家抽牌")
+	// 	banker.DrawCards(dealer)
+	// }
 
-	var totalPay uint32 = 0
-	for i := 0; i < len(player.Hands); i++ {
-		totalPay += CompareAndPay(player.Hands[i].Cards, player.Hands[i].Bet, banker.Cards).WinAmount
-	}
+	// fmt.Println(banker)
+	// fmt.Println("比較與賠付")
 
-	fmt.Printf("拿到 %v\n", totalPay)
-	player.Credit += totalPay
-	fmt.Println(player)
+	// var totalPay uint32 = 0
+	// for i := 0; i < len(player.Hands); i++ {
+	// 	totalPay += CompareAndPay(player.Hands[i].Cards, player.Hands[i].Bet, banker.Cards).WinAmount
+	// }
+
+	// fmt.Printf("拿到 %v\n", totalPay)
+	// player.Credit += totalPay
+	// fmt.Println(player)
 
 }

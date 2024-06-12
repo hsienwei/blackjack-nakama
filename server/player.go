@@ -6,8 +6,8 @@ import (
 )
 
 type Hand struct {
-	Bet   uint32
-	Cards []Card
+	Bet uint32
+	CardSet
 }
 
 type Player struct {
@@ -28,7 +28,7 @@ func (p *Player) CurrentHand() *Hand {
 func (p *Player) actionIllegal(action Option) bool {
 
 	actionIllegal := true
-	for _, v := range player.Options {
+	for _, v := range p.Options {
 		if v == action {
 			actionIllegal = false
 			break
@@ -49,19 +49,19 @@ func (p *Player) Stand() {
 	p.HandIndex++
 }
 
-func (p *Player) Hit() {
+func (p *Player) Hit(dealer *Dealer) {
 	curHand := p.CurrentHand()
-	curHand.Cards = dealer.DealTo(curHand.Cards, 1)
-	if GetPoint(curHand.Cards).Hard > 21 {
+	curHand.CardSet = dealer.DealTo(curHand.CardSet, 1)
+	if curHand.CardSet.GetPoint().Hard > 21 {
 		p.HandIndex++
 	}
 }
 
-func (p *Player) Double() {
+func (p *Player) Double(dealer *Dealer) {
 	curHand := p.CurrentHand()
 	p.Credit -= curHand.Bet
 	curHand.Bet *= 2
-	curHand.Cards = dealer.DealTo(curHand.Cards, 1)
+	curHand.CardSet = dealer.DealTo(curHand.CardSet, 1)
 	p.HandIndex++
 }
 
@@ -70,10 +70,10 @@ func (p *Player) Split() {
 
 	hand := Hand{}
 	hand.Bet = p.CurrentHand().Bet
-	hand.Cards = []Card{p.CurrentHand().Cards[1]}
+	hand.CardSet = []Card{p.CurrentHand().CardSet[1]}
 	p.Hands = append(p.Hands, hand)
 
-	p.CurrentHand().Cards = []Card{p.CurrentHand().Cards[0]}
+	p.CurrentHand().CardSet = []Card{p.CurrentHand().CardSet[0]}
 }
 
 func (p *Player) IsAllHandsFinished() bool {
@@ -82,7 +82,7 @@ func (p *Player) IsAllHandsFinished() bool {
 
 func (p *Player) IsAllHandsBust() bool {
 	for i := 0; i < len(p.Hands); i++ {
-		if GetPoint(p.Hands[i].Cards).Hard <= 21 {
+		if p.Hands[i].CardSet.GetPoint().Hard <= 21 {
 			return false
 		}
 	}
@@ -92,7 +92,7 @@ func (p *Player) IsAllHandsBust() bool {
 
 func (p *Player) reset() {
 	p.Hands = []Hand{}
-	p.Hands = append(player.Hands, Hand{})
+	p.Hands = append(p.Hands, Hand{})
 	p.HandIndex = 0
 	p.Options = nil
 }
@@ -104,7 +104,7 @@ func (p *Player) String() string {
 
 	for i := 0; i < len(p.Hands); i++ {
 		builder.WriteString(fmt.Sprintf("# %d \t Bet %d \t ", i, p.Hands[i].Bet))
-		builder.WriteString(fmt.Sprintf("%v %v\n ", p.Hands[i].Cards, GetPoint(p.Hands[i].Cards)))
+		builder.WriteString(fmt.Sprintf("%v %v\n ", p.Hands[i].CardSet, p.Hands[i].CardSet.GetPoint()))
 	}
 
 	return builder.String()

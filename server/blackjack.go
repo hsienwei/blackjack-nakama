@@ -1,6 +1,8 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+)
 
 var cardPoint = [CARD_RANK_LEN]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10}
 
@@ -15,7 +17,14 @@ const (
 	RESULT Option = "result"
 )
 
-func IsAllowSplit(cards []Card) bool {
+type Point struct {
+	Soft int
+	Hard int
+}
+
+type CardSet []Card
+
+func (cards CardSet) IsAllowSplit() bool {
 	if len(cards) != 2 {
 		return false
 	}
@@ -23,12 +32,7 @@ func IsAllowSplit(cards []Card) bool {
 	return cards[0].Point() == cards[1].Point()
 }
 
-type Point struct {
-	Soft int
-	Hard int
-}
-
-func GetPoint(cards []Card) Point {
+func (cards CardSet) GetPoint() Point {
 	rankAceCount := 0
 	point := 0
 	for _, v := range cards {
@@ -53,15 +57,79 @@ func GetPoint(cards []Card) Point {
 	}
 }
 
+type BlackJackGame struct {
+	player Player
+	banker Banker
+	dealer Dealer
+}
+
+func (bj *BlackJackGame) ExecAction(action Option, value any) (bool, string) {
+	if bj.player.actionIllegal(action) {
+		return false, "Action Illegal"
+	}
+
+	switch action {
+	case BET:
+		bj.dealer.CheckReshuffleCard()
+		// bj.banker.reset()
+		bj.player.reset()
+
+		betAmount, ok := value.(int)
+		if !ok {
+			return false, "Value Illegal"
+		}
+
+		bj.player.Bet(uint32(betAmount))
+
+		curHand := bj.player.CurrentHand()
+		curHand.CardSet = bj.dealer.DealTo(curHand.CardSet, 1)
+		bj.banker.CardSet = bj.dealer.DealTo(bj.banker.CardSet, 1)
+		curHand.CardSet = bj.dealer.DealTo(curHand.CardSet, 1)
+		bj.banker.CardSet = bj.dealer.DealTo(bj.banker.CardSet, 1)
+
+	case HIT:
+		bj.player.Hit(&bj.dealer)
+	case STAND:
+		bj.player.Stand()
+	case SPLIT:
+		bj.player.Split()
+	case DOUBLE:
+		bj.player.Double(&bj.dealer)
+	}
+
+	// var result *Result
+
+	if bj.player.IsAllHandsFinished() {
+		bj.ExecBankerAction()
+	}
+
+	bj.player.Options = bj.GetActionOption()
+
+	return true, ""
+}
+
+func (bj *BlackJackGame) ExecBankerAction() *Result {
+	if !bj.player.IsAllHandsBust() {
+		bj.banker.DrawCards(&bj.dealer)
+	}
+
+	return bj.banker.getResult(&bj.player)
+	// bj.banker.getResult(&bj.player)
+
+	// for i := 0; i < len(result.HandResult); i++ {
+	// 	bj.player.Credit += result.HandResult[i].WinAmount
+	// }
+}
+
 type HandResult struct {
 	WinAmount uint32
 	Comment   string
 }
 
-func CompareAndPay(playerCards []Card, bet uint32, bankerCards []Card) HandResult {
+func CompareAndPay(playerCards CardSet, bet uint32, bankerCards CardSet) HandResult {
 	fmt.Printf("PlayerCard:%v   bankerCards:%v  bet: %d \n", playerCards, bankerCards, bet)
-	playerPoint := GetPoint(playerCards)
-	bankerPoint := GetPoint(bankerCards)
+	playerPoint := playerCards.GetPoint()
+	bankerPoint := bankerCards.GetPoint()
 	var rtn HandResult
 	if playerPoint.Soft > 21 {
 		fmt.Println("Player hands bust , Banker Win")
@@ -83,14 +151,14 @@ func CompareAndPay(playerCards []Card, bet uint32, bankerCards []Card) HandResul
 	return rtn
 }
 
-func getActionOption(p *Player) []Option {
+func (bj *BlackJackGame) GetActionOption() []Option {
 	rtn := []Option{}
 
-	if p.IsAllHandsFinished() && p.Credit >= 50 {
+	if bj.player.IsAllHandsFinished() && bj.player.Credit >= 50 {
 		rtn = append(rtn, BET)
 	} else {
-		curHand := p.CurrentHand()
-		point := GetPoint(curHand.Cards)
+		curHand := bj.player.CurrentHand()
+		point := curHand.CardSet.GetPoint()
 
 		if curHand.Bet == 0 {
 			rtn = append(rtn, BET)
@@ -101,11 +169,11 @@ func getActionOption(p *Player) []Option {
 				rtn = append(rtn, STAND)
 			}
 
-			if len(curHand.Cards) == 2 && p.Credit >= curHand.Bet {
-				if !(point.Soft < 21) {
+			if len(curHand.CardSet) == 2 && bj.player.Credit >= curHand.Bet {
+				if point.Soft < 21 {
 					rtn = append(rtn, DOUBLE)
 				}
-				if IsAllowSplit(curHand.Cards) {
+				if curHand.CardSet.IsAllowSplit() {
 					rtn = append(rtn, SPLIT)
 				}
 			}
